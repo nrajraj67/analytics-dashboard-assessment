@@ -4,7 +4,7 @@ A complete analytics dashboard for visualizing Electric Vehicle (EV) population 
 
 ## 🚀 Live Dashboard
 
-**Dashboard URL**: [Add your deployed URL here after deployment]
+**Dashboard URL**: [https://shimmering-druid-90d04f.netlify.app/]
 
 ## ⚡ Quick Start
 
