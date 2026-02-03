@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EV Population Analytics Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #0ea5e9;
+            --primary-dark: #0284c7;
+            --secondary: #8b5cf6;
+            --accent: #f59e0b;
+            --success: #10b981;
+            --background: #0f172a;
+            --surface: #1e293b;
+            --surface-light: #334155;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .dashboard {
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .header {
+            margin-bottom: 3rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(14, 165, 233, 0.2);
+        }
+
+        .stat-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            color: var(--text);
+        }
+
+        .stat-icon {
+            position: absolute;
+            right: 1.5rem;
+            top: 1.5rem;
+            font-size: 2rem;
+            opacity: 0.2;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: var(--surface);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .chart-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-select {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-select:hover {
+            border-color: var(--primary);
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+        }
+
+        .file-upload {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .file-input-label {
+            background: var(--primary);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .file-input-label:hover {
+            background: var(--primary-dark);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-name {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .table-card {
+            background: var(--surface);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 1rem;
+            background: var(--surface-light);
+            font-weight: 600;
+            color: var(--text);
+            position: sticky;
+            top: 0;
+        }
+
+        td {
+            padding: 1rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        tr:hover {
+            background: rgba(14, 165, 233, 0.05);
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-size: 1.5rem;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-right: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-container {
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        function EVDashboard() {
+            const [data, setData] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [selectedYear, setSelectedYear] = useState('all');
+            const [selectedMake, setSelectedMake] = useState('all');
+            const [fileName, setFileName] = useState('');
+            const chartRefs = {
+                evType: useRef(null),
+                topMakes: useRef(null),
+                yearTrend: useRef(null),
+                range: useRef(null)
+            };
+
+            useEffect(() => {
+                // Try to load CSV file
+                loadCSVData();
+            }, []);
+
+            useEffect(() => {
+                if (data.length > 0) {
+                    renderCharts();
+                }
+            }, [data, selectedYear, selectedMake]);
+
+            const loadCSVData = () => {
+                // Try multiple possible locations for the CSV file
+                const possiblePaths = [
+                    './data/ev-data.csv',
+                    './Electric_Vehicle_Population_Data.csv',
+                    './ev-data.csv'
+                ];
+
+                let loaded = false;
+
+                const tryPath = (index) => {
+                    if (index >= possiblePaths.length) {
+                        // If no CSV found, use sample data
+                        console.log('CSV file not found, using sample data');
+                        loadSampleData();
+                        return;
+                    }
+
+                    Papa.parse(possiblePaths[index], {
+                        download: true,
+                        header: true,
+                        dynamicTyping: true,
+                        skipEmptyLines: true,
+                        complete: (results) => {
+                            if (results.data && results.data.length > 0) {
+                                setData(results.data);
+                                setFileName(possiblePaths[index].split('/').pop());
+                                setLoading(false);
+                                loaded = true;
+                            } else {
+                                tryPath(index + 1);
+                            }
+                        },
+                        error: (error) => {
+                            console.error(`Failed to load ${possiblePaths[index]}:`, error);
+                            tryPath(index + 1);
+                        }
+                    });
+                };
+
+                tryPath(0);
+            };
+
+            const loadSampleData = () => {
+                // Sample data for demonstration
+                const sampleData = [
+                    { VIN: "5YJ3E1EA1K", County: "King", City: "Seattle", State: "WA", "Postal Code": "98101", "Model Year": 2019, Make: "TESLA", Model: "MODEL 3", "Electric Vehicle Type": "Battery Electric Vehicle (BEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Clean Alternative Fuel Vehicle Eligible", "Electric Range": 220, "Base MSRP": 0, "Legislative District": 43, "DOL Vehicle ID": 123456789, "Vehicle Location": "POINT (-122.3321 47.6062)", "Electric Utility": "CITY OF SEATTLE - (WA)|CITY OF TACOMA - (WA)", "2020 Census Tract": 53033005302 },
+                    { VIN: "1N4AZ1CP0J", County: "Snohomish", City: "Everett", State: "WA", "Postal Code": "98201", "Model Year": 2018, Make: "NISSAN", Model: "LEAF", "Electric Vehicle Type": "Battery Electric Vehicle (BEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Clean Alternative Fuel Vehicle Eligible", "Electric Range": 151, "Base MSRP": 0, "Legislative District": 21, "DOL Vehicle ID": 234567890, "Vehicle Location": "POINT (-122.2008 47.9790)", "Electric Utility": "PUGET SOUND ENERGY INC", "2020 Census Tract": 53061041911 },
+                    { VIN: "5YJ3E1EB2K", County: "King", City: "Bellevue", State: "WA", "Postal Code": "98004", "Model Year": 2019, Make: "TESLA", Model: "MODEL 3", "Electric Vehicle Type": "Battery Electric Vehicle (BEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Clean Alternative Fuel Vehicle Eligible", "Electric Range": 220, "Base MSRP": 0, "Legislative District": 41, "DOL Vehicle ID": 345678901, "Vehicle Location": "POINT (-122.2015 47.6101)", "Electric Utility": "PUGET SOUND ENERGY INC", "2020 Census Tract": 53033023203 },
+                    { VIN: "JTDKARFP1J", County: "Pierce", City: "Tacoma", State: "WA", "Postal Code": "98409", "Model Year": 2018, Make: "TOYOTA", Model: "PRIUS PRIME", "Electric Vehicle Type": "Plug-in Hybrid Electric Vehicle (PHEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Clean Alternative Fuel Vehicle Eligible", "Electric Range": 25, "Base MSRP": 0, "Legislative District": 27, "DOL Vehicle ID": 456789012, "Vehicle Location": "POINT (-122.4443 47.2529)", "Electric Utility": "TACOMA PUBLIC UTILITIES", "2020 Census Tract": 53053008700 },
+                    { VIN: "5YJSA1E20H", County: "King", City: "Redmond", State: "WA", "Postal Code": "98052", "Model Year": 2017, Make: "TESLA", Model: "MODEL S", "Electric Vehicle Type": "Battery Electric Vehicle (BEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Clean Alternative Fuel Vehicle Eligible", "Electric Range": 210, "Base MSRP": 0, "Legislative District": 45, "DOL Vehicle ID": 567890123, "Vehicle Location": "POINT (-122.1215 47.6740)", "Electric Utility": "PUGET SOUND ENERGY INC", "2020 Census Tract": 53033022303 },
+                    { VIN: "WBY8P2C51K", County: "King", City: "Seattle", State: "WA", "Postal Code": "98102", "Model Year": 2019, Make: "BMW", Model: "I3", "Electric Vehicle Type": "Battery Electric Vehicle (BEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Clean Alternative Fuel Vehicle Eligible", "Electric Range": 153, "Base MSRP": 0, "Legislative District": 43, "DOL Vehicle ID": 678901234, "Vehicle Location": "POINT (-122.3238 47.6289)", "Electric Utility": "CITY OF SEATTLE - (WA)", "2020 Census Tract": 53033007200 },
+                    { VIN: "5YJ3E1EA9L", County: "Pierce", City: "Lakewood", State: "WA", "Postal Code": "98499", "Model Year": 2020, Make: "TESLA", Model: "MODEL 3", "Electric Vehicle Type": "Battery Electric Vehicle (BEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Clean Alternative Fuel Vehicle Eligible", "Electric Range": 263, "Base MSRP": 0, "Legislative District": 29, "DOL Vehicle ID": 789012345, "Vehicle Location": "POINT (-122.5182 47.1717)", "Electric Utility": "TACOMA PUBLIC UTILITIES", "2020 Census Tract": 53053029103 },
+                    { VIN: "3C3CFFGE9F", County: "Snohomish", City: "Marysville", State: "WA", "Postal Code": "98270", "Model Year": 2015, Make: "FIAT", Model: "500", "Electric Vehicle Type": "Battery Electric Vehicle (BEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Clean Alternative Fuel Vehicle Eligible", "Electric Range": 87, "Base MSRP": 0, "Legislative District": 10, "DOL Vehicle ID": 890123456, "Vehicle Location": "POINT (-122.1771 48.0518)", "Electric Utility": "PUGET SOUND ENERGY INC", "2020 Census Tract": 53061051800 },
+                    { VIN: "KNDJX3AE3K", County: "King", City: "Kirkland", State: "WA", "Postal Code": "98033", "Model Year": 2019, Make: "KIA", Model: "NIRO", "Electric Vehicle Type": "Plug-in Hybrid Electric Vehicle (PHEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Not eligible due to low battery range", "Electric Range": 26, "Base MSRP": 0, "Legislative District": 48, "DOL Vehicle ID": 901234567, "Vehicle Location": "POINT (-122.2065 47.6769)", "Electric Utility": "PUGET SOUND ENERGY INC", "2020 Census Tract": 53033022604 },
+                    { VIN: "5YJSA1H20F", County: "King", City: "Sammamish", State: "WA", "Postal Code": "98074", "Model Year": 2015, Make: "TESLA", Model: "MODEL S", "Electric Vehicle Type": "Battery Electric Vehicle (BEV)", "Clean Alternative Fuel Vehicle (CAFV) Eligibility": "Clean Alternative Fuel Vehicle Eligible", "Electric Range": 208, "Base MSRP": 0, "Legislative District": 5, "DOL Vehicle ID": 12345678, "Vehicle Location": "POINT (-122.0355 47.6163)", "Electric Utility": "PUGET SOUND ENERGY INC", "2020 Census Tract": 53033032326 }
+                ];
+                setData(sampleData);
+                setFileName('Sample Data (Upload your CSV)');
+                setLoading(false);
+            };
+
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    setLoading(true);
+                    Papa.parse(file, {
+                        header: true,
+                        dynamicTyping: true,
+                        skipEmptyLines: true,
+                        complete: (results) => {
+                            if (results.data && results.data.length > 0) {
+                                setData(results.data);
+                                setFileName(file.name);
+                                setError(null);
+                            } else {
+                                setError('No data found in CSV file');
+                            }
+                            setLoading(false);
+                        },
+                        error: (error) => {
+                            setError(`Error parsing CSV: ${error.message}`);
+                            setLoading(false);
+                        }
+                    });
+                }
+            };
+
+            const getFilteredData = () => {
+                let filtered = [...data];
+                if (selectedYear !== 'all') {
+                    filtered = filtered.filter(d => d['Model Year'] === parseInt(selectedYear));
+                }
+                if (selectedMake !== 'all') {
+                    filtered = filtered.filter(d => d.Make === selectedMake);
+                }
+                return filtered;
+            };
+
+            const calculateStats = () => {
+                const filtered = getFilteredData();
+                const totalVehicles = filtered.length;
+                const bevCount = filtered.filter(d => d['Electric Vehicle Type'] && d['Electric Vehicle Type'].includes('BEV')).length;
+                const phevCount = filtered.filter(d => d['Electric Vehicle Type'] && d['Electric Vehicle Type'].includes('PHEV')).length;
+                const avgRange = filtered.reduce((sum, d) => sum + (d['Electric Range'] || 0), 0) / (filtered.length || 1);
+                const uniqueMakes = new Set(filtered.map(d => d.Make).filter(Boolean)).size;
+
+                return {
+                    totalVehicles,
+                    bevPercentage: totalVehicles > 0 ? ((bevCount / totalVehicles) * 100).toFixed(1) : 0,
+                    phevPercentage: totalVehicles > 0 ? ((phevCount / totalVehicles) * 100).toFixed(1) : 0,
+                    avgRange: avgRange.toFixed(0),
+                    uniqueMakes
+                };
+            };
+
+            const renderCharts = () => {
+                const filtered = getFilteredData();
+
+                // EV Type Distribution
+                const evTypeCounts = {};
+                filtered.forEach(d => {
+                    const type = d['Electric Vehicle Type'];
+                    if (type) {
+                        const shortType = type.includes('BEV') ? 'BEV' : 'PHEV';
+                        evTypeCounts[shortType] = (evTypeCounts[shortType] || 0) + 1;
+                    }
+                });
+
+                if (chartRefs.evType.current) {
+                    const ctx = chartRefs.evType.current.getContext('2d');
+                    if (chartRefs.evType.current.chart) {
+                        chartRefs.evType.current.chart.destroy();
+                    }
+                    chartRefs.evType.current.chart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: Object.keys(evTypeCounts),
+                            datasets: [{
+                                data: Object.values(evTypeCounts),
+                                backgroundColor: ['#0ea5e9', '#8b5cf6'],
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: { color: '#f1f5f9', padding: 15, font: { size: 14 } }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Top Makes
+                const makeCounts = {};
+                filtered.forEach(d => {
+                    if (d.Make) {
+                        makeCounts[d.Make] = (makeCounts[d.Make] || 0) + 1;
+                    }
+                });
+                const topMakes = Object.entries(makeCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+
+                if (chartRefs.topMakes.current && topMakes.length > 0) {
+                    const ctx = chartRefs.topMakes.current.getContext('2d');
+                    if (chartRefs.topMakes.current.chart) {
+                        chartRefs.topMakes.current.chart.destroy();
+                    }
+                    chartRefs.topMakes.current.chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: topMakes.map(m => m[0]),
+                            datasets: [{
+                                label: 'Number of Vehicles',
+                                data: topMakes.map(m => m[1]),
+                                backgroundColor: '#0ea5e9',
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { color: '#334155' }
+                                },
+                                x: {
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { display: false }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Year Trend
+                const yearCounts = {};
+                filtered.forEach(d => {
+                    const year = d['Model Year'];
+                    if (year) {
+                        yearCounts[year] = (yearCounts[year] || 0) + 1;
+                    }
+                });
+                const sortedYears = Object.keys(yearCounts).sort();
+
+                if (chartRefs.yearTrend.current && sortedYears.length > 0) {
+                    const ctx = chartRefs.yearTrend.current.getContext('2d');
+                    if (chartRefs.yearTrend.current.chart) {
+                        chartRefs.yearTrend.current.chart.destroy();
+                    }
+                    chartRefs.yearTrend.current.chart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: sortedYears,
+                            datasets: [{
+                                label: 'Vehicles Registered',
+                                data: sortedYears.map(y => yearCounts[y]),
+                                borderColor: '#8b5cf6',
+                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                fill: true,
+                                tension: 0.4,
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { color: '#334155' }
+                                },
+                                x: {
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { display: false }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Electric Range Distribution
+                const rangeBins = { '0-50': 0, '51-100': 0, '101-150': 0, '151-200': 0, '200+': 0 };
+                filtered.forEach(d => {
+                    const range = d['Electric Range'];
+                    if (range !== null && range !== undefined) {
+                        if (range <= 50) rangeBins['0-50']++;
+                        else if (range <= 100) rangeBins['51-100']++;
+                        else if (range <= 150) rangeBins['101-150']++;
+                        else if (range <= 200) rangeBins['151-200']++;
+                        else rangeBins['200+']++;
+                    }
+                });
+
+                if (chartRefs.range.current) {
+                    const ctx = chartRefs.range.current.getContext('2d');
+                    if (chartRefs.range.current.chart) {
+                        chartRefs.range.current.chart.destroy();
+                    }
+                    chartRefs.range.current.chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: Object.keys(rangeBins),
+                            datasets: [{
+                                label: 'Number of Vehicles',
+                                data: Object.values(rangeBins),
+                                backgroundColor: '#10b981',
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { color: '#334155' }
+                                },
+                                x: {
+                                    ticks: { color: '#94a3b8' },
+                                    grid: { display: false }
+                                }
+                            }
+                        }
+                    });
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="loading">
+                        <div className="spinner"></div>
+                        Loading EV Data...
+                    </div>
+                );
+            }
+
+            const stats = calculateStats();
+            const uniqueYears = [...new Set(data.map(d => d['Model Year']).filter(Boolean))].sort();
+            const uniqueMakes = [...new Set(data.map(d => d.Make).filter(Boolean))].sort();
+            const filtered = getFilteredData();
+
+            return (
+                <div className="dashboard">
+                    <div className="header">
+                        <h1>Electric Vehicle Analytics</h1>
+                        <p>Comprehensive insights into the EV population dataset</p>
+                    </div>
+
+                    {error && (
+                        <div className="error">
+                            {error}
+                        </div>
+                    )}
+
+                    <div className="filters">
+                        <div className="file-upload">
+                            <label htmlFor="csv-upload" className="file-input-label">
+                                Upload CSV
+                            </label>
+                            <input 
+                                id="csv-upload"
+                                type="file" 
+                                accept=".csv"
+                                onChange={handleFileUpload}
+                                className="file-input"
+                            />
+                            {fileName && <span className="file-name">📄 {fileName}</span>}
+                        </div>
+                        <select 
+                            className="filter-select" 
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(e.target.value)}
+                        >
+                            <option value="all">All Years</option>
+                            {uniqueYears.map(year => (
+                                <option key={year} value={year}>{year}</option>
+                            ))}
+                        </select>
+                        <select 
+                            className="filter-select" 
+                            value={selectedMake}
+                            onChange={(e) => setSelectedMake(e.target.value)}
+                        >
+                            <option value="all">All Makes</option>
+                            {uniqueMakes.map(make => (
+                                <option key={make} value={make}>{make}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="stats-grid">
+                        <div className="stat-card">
+                            <div className="stat-label">Total Vehicles</div>
+                            <div className="stat-value">{stats.totalVehicles.toLocaleString()}</div>
+                            <div className="stat-icon">🚗</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-label">BEV Percentage</div>
+                            <div className="stat-value">{stats.bevPercentage}%</div>
+                            <div className="stat-icon">🔋</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-label">PHEV Percentage</div>
+                            <div className="stat-value">{stats.phevPercentage}%</div>
+                            <div className="stat-icon">⚡</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-label">Avg Range (miles)</div>
+                            <div className="stat-value">{stats.avgRange}</div>
+                            <div className="stat-icon">📊</div>
+                        </div>
+                    </div>
+
+                    <div className="charts-grid">
+                        <div className="chart-card">
+                            <div className="chart-title">EV Type Distribution</div>
+                            <div className="chart-container">
+                                <canvas ref={chartRefs.evType}></canvas>
+                            </div>
+                        </div>
+                        <div className="chart-card">
+                            <div className="chart-title">Top 5 Manufacturers</div>
+                            <div className="chart-container">
+                                <canvas ref={chartRefs.topMakes}></canvas>
+                            </div>
+                        </div>
+                        <div className="chart-card">
+                            <div className="chart-title">Registration Trend by Year</div>
+                            <div className="chart-container">
+                                <canvas ref={chartRefs.yearTrend}></canvas>
+                            </div>
+                        </div>
+                        <div className="chart-card">
+                            <div className="chart-title">Electric Range Distribution (miles)</div>
+                            <div className="chart-container">
+                                <canvas ref={chartRefs.range}></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="table-card">
+                        <div className="chart-title">Vehicle Details (Showing {Math.min(10, filtered.length)} of {filtered.length})</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Make</th>
+                                    <th>Model</th>
+                                    <th>Year</th>
+                                    <th>Type</th>
+                                    <th>Range</th>
+                                    <th>City</th>
+                                    <th>County</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filtered.slice(0, 10).map((vehicle, idx) => (
+                                    <tr key={idx}>
+                                        <td>{vehicle.Make || 'N/A'}</td>
+                                        <td>{vehicle.Model || 'N/A'}</td>
+                                        <td>{vehicle['Model Year'] || 'N/A'}</td>
+                                        <td>{vehicle['Electric Vehicle Type'] ? (vehicle['Electric Vehicle Type'].includes('BEV') ? 'BEV' : 'PHEV') : 'N/A'}</td>
+                                        <td>{vehicle['Electric Range'] || 0} mi</td>
+                                        <td>{vehicle.City || 'N/A'}</td>
+                                        <td>{vehicle.County || 'N/A'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<EVDashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>
